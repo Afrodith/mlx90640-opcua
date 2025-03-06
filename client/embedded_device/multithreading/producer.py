@@ -144,8 +144,8 @@ class Producer:
                         (10, 30 + i * 30),  # Position text
                         cv2.FONT_HERSHEY_SIMPLEX, 
                         0.7,  # Font scale
-                        (255, 255, 255),  # White color
-                        1  # Thickness
+                        (0, 0, 0),  # White color
+                        2  # Thickness
                     )
                 
                 return heatmap

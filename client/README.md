@@ -34,9 +34,7 @@ start in a new powershell to have the updated path variable.
 # Build project
 To build the poetry project and generate the executable, do the following:
 
-- change to project directory:
-
-  cd embedded_device\
+In the same directory:
 
 - create a python virtual environmentl:
 
@@ -60,15 +58,23 @@ To build the poetry project and generate the executable, do the following:
 	
 	
 
-The executable will be generated in the dist folder. Copy the exe to the desired location and alongside it copy the folder app_configuration with the embedded_device_config.json inside it and thermal_viewer.qml ui file.
+The executable will be generated in the dist folder. Copy the exe to the desired location and alongside it copy the folder app_configuration with the embedded_device_config.json.
 
-![depedencies](C:\Users\afrodititoufa\AppData\Roaming\Typora\typora-user-images\image-20250306060731331.png)
+![dist](dist.png)
 
+The embedded_device_config.json file contains all the configurations for the service (log generation file, opcua server ip) .
 
+embedded_device_config.json:
 
-The embedded_device_config.json file contains all the configurations for the service (log genration, opcua server ip) . Now the exe is ready to be run.	
+```
+{
+    "opcua_server": "opc.tcp://192.168.7.2:4840/freeopcua/server/",
+    "log_file": "embedded_device.log"
+}
+```
+Now the exe is ready to be run.	
 
-When the exe is started a log file (embedded_device.log) is produced that contains runtime messages from the app.
+When the exe is started the log file (embedded_device.log) is produced and contains runtime messages from the app.
 
 For more information, documentation check the following:
 

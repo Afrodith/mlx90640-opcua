@@ -17,6 +17,15 @@ from multithreading.buffer import CircularBuffer
 from multithreading.producer import Producer
 from app_configuration.app_configs import AppConfigs
 
+
+# Get the correct path inside the PyInstaller bundle
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS  # PyInstaller extracts files here at runtime
+else:
+    base_path = os.path.dirname(__file__)
+
+qml_file = os.path.join(base_path, ".", "thermal_viewer.qml")
+
 class ThermalImageProcessor(QObject):
     """Handles thermal image processing and conversion"""
     def __init__(self):
@@ -147,7 +156,7 @@ def main():
     QQuickStyle.setStyle("Universal")  
     
     # Load QML file
-    engine.load(QUrl.fromLocalFile('thermal_viewer.qml'))
+    engine.load(QUrl.fromLocalFile(qml_file))
     
     
     if not engine.rootObjects():
