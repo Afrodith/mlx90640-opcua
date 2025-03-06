@@ -1,0 +1,64 @@
+[tool.poetry]
+name = "embedded_device"
+version = "0.1.0"
+description = "Depedency handling of embedded device microservice with poetry."
+authors = ["Afroditi Toufa <afrodititoufa@bbv.ch>"]
+readme = "README.md"
+packages = [{include = "embedded_device"}]
+
+
+[tool.poetry.scripts]
+build = "embedded_device.pyinstaller:install"
+
+[tool.poetry.dependencies]
+python = "3.11.*"
+aiofiles ="*" 
+aiosqlite  ="*"
+asyncua ="*"
+attrs  ="*"
+blinker ="*"
+cffi ="*"
+click ="*"
+colorama ="*"
+cryptography ="*"
+flasgger ="*"
+Flask ="*"
+Flask-JWT-Extended ="*"
+itsdangerous ="*"
+Jinja2 ="*"
+jsonschema ="*"
+jsonschema-specifications ="*"
+MarkupSafe ="*"
+mistune ="*"
+packaging ="*"
+python-socketio ="*"
+pip ="*"
+pycparser ="*"
+PyJWT ="*"
+pyOpenSSL ="*"
+python-dateutil ="*"
+pytz ="*"
+PyYAML ="*"
+referencing  ="*"
+rpds-py ="*"
+setuptools ="*"
+six ="*"
+sortedcontainers ="*"
+typing_extensions ="*"
+Werkzeug ="*" 
+flask-socketio ="*"
+numpy ="*"
+opencv-python ="*"
+pyside6 = "^6.2.0" 
+Flask-SocketIO ="*"         
+
+
+[tool.poetry.group.dev.dependencies]
+pyinstaller = "*"
+pytest = "*"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

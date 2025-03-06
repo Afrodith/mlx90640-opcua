@@ -1,0 +1,4 @@
+{
+    "opcua_server": "opc.tcp://192.168.7.2:4840/freeopcua/server/",
+    "log_file": "embedded_device.log"
+}
