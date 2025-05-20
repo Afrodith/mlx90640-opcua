@@ -20,6 +20,10 @@ class Producer:
         self._loop = None
         self.appConfigs = appConfigs
         self.scale_factor = 10
+        self.thermal_node = None
+        self.last_thermal_data = None
+        self.last_fetch_time = 0
+        self.fetch_interval = 0.1  # Minimum time between fetches (seconds)
 
     async def connect(self):
         """Establish connection to OPC-UA server"""
@@ -29,9 +33,9 @@ class Producer:
             self.client = asyncua.Client(server_url)
             await self.client.connect()
             
-            # Get namespace index
             ns_array = await self.client.get_namespace_array()
             self.custom_ns_idx = next((idx for idx, ns in enumerate(ns_array) if ns == self.custom_ns_name), 2)
+            self.thermal_node = await self.client.nodes.objects.get_child([f"{self.custom_ns_idx}:ThermalData"])
             
             self.connected = True
             self.appConfigs.logging(f"Connected to OPC-UA server at {server_url}")
@@ -50,110 +54,74 @@ class Producer:
             try:
                 current_time = time.time()
                 
-                # Reconnect if not connected
+                # Try re-connect
                 if not self.connected and (current_time - last_connection_attempt) > self.reconnect_delay:
                     last_connection_attempt = current_time
                     await self.connect()
                 
                 # Fetch and process data if connected
-                if self.connected and self.client:
+                if self.connected and self.client and self.thermal_node:
                     try:
-                        objects = self.client.nodes.objects
-                        opcua_node = await objects.get_child([f"{self.custom_ns_idx}:ThermalData"])
-                        
-                        thermal_data = await opcua_node.read_value()
+                        # Rate limit data fetching for better performance
+                        if current_time - self.last_fetch_time >= self.fetch_interval:
+                            self.last_fetch_time = current_time
 
-                        if isinstance(thermal_data, list) and len(thermal_data) == 768:
-                            # Process thermal data
-                            # Reshape to original sensor resolution (24x32)
-                            thermal_array =  np.array(thermal_data, dtype=np.float32).reshape((24, 32))
+                            thermal_data = await self.thermal_node.read_value()
                             
-                            # Normalize to full range, but preserve temperature information
-                            min_temp = np.min(thermal_array)
-                            max_temp = np.max(thermal_array)
-                            
-                            # Normalize with custom max-min scaling, this is to keep the colormap values to correct ranges.
-                            normalized = (thermal_array - max_temp) / (min_temp - max_temp)
-                            
-                       
-                            
-                            # Resize with cubic interpolation
-                            resized = cv2.resize(
-                                normalized, 
-                                (32 * self.scale_factor, 24 * self.scale_factor), 
-                                interpolation=cv2.INTER_CUBIC
-                            )
-                            
-                          
-                            heatmap = cv2.applyColorMap(
-                                np.uint8(resized * 255), 
-                                cv2.COLORMAP_JET )
-
-                            heatmap = self.add_temperature_overlay(heatmap, thermal_data)
-
-                            _, buffer_frame = cv2.imencode('.jpg', heatmap)
-                         
-                            # Add to buffer if not full
-                            if not self.buffer.full():
-                                self.buffer.put(buffer_frame.tobytes())
-                                self.appConfigs.logging(f"Added frame to buffer.")
-                            
+                            # Store the raw thermal data for temperature display
+                            if isinstance(thermal_data, list) and len(thermal_data) == 768:
+                                self.last_thermal_data = thermal_data
+                                
+                                # Process thermal data
+                                # Reshape to original sensor resolution (24x32)
+                                thermal_array = np.array(thermal_data, dtype=np.float32).reshape((24, 32))
+                                
+                                # Normalize to full range
+                                min_temp = np.min(thermal_array)
+                                max_temp = np.max(thermal_array)
+                                
+                                # Normalize with custom max-min scaling
+                                normalized = (thermal_array - max_temp) / (min_temp - max_temp)
+                                
+                                # Resize with cubic interpolation
+                                resized = cv2.resize(
+                                    normalized, 
+                                    (32 * self.scale_factor, 24 * self.scale_factor), 
+                                    interpolation=cv2.INTER_CUBIC
+                                )
+                                
+                                # Apply colormap
+                                heatmap = cv2.applyColorMap(
+                                    np.uint8(resized * 255), 
+                                    cv2.COLORMAP_JET
+                                )
+                                
+                                # Compress for better performance
+                                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+                                _, buffer_frame = cv2.imencode('.jpg', heatmap, encode_param)
+                                
+                                # Add to buffer if not full
+                                if not self.buffer.full():
+                                    self.buffer.put(buffer_frame.tobytes())
+                                else:
+                                    # If buffer is full, remove oldest item and add new one
+                                    self.buffer.get() 
+                                    self.buffer.put(buffer_frame.tobytes())
                     except Exception as e:
                         self.appConfigs.logging(f"Data fetch error: {e}")
                         print(f"Data fetch error: {e}")
                         self.connected = False
                 
-                # Control loop 
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.03)
                 
             except Exception as e:
                 self.appConfigs.logging(f"Critical error in fetch loop: {e}")
                 print(f"Critical error in fetch loop: {e}")
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
             
             # Check stop condition
             if not self.running:
                 break
-
-    def add_temperature_overlay(self, heatmap, thermal_data):
-            """
-            Add temperature overlay to the heatmap
-            Add min,max and avg temp on heatmap frame to display
-            """
-            try:
-                # Reshape thermal data
-                thermal_array = np.array(thermal_data, dtype=np.float32).reshape((24, 32))
-                
-                # Calculate min, max, and mean temperatures
-                min_temp = np.min(thermal_array)
-                max_temp = np.max(thermal_array)
-                mean_temp = np.mean(thermal_array)
-                
-                # Prepare text overlay
-                overlay_text = [
-                    f"Min: {min_temp:.2f}°C",
-                    f"Max: {max_temp:.2f}°C",
-                    f"Avg: {mean_temp:.2f}°C"
-                ]
-                
-                # Add text to image
-                for i, text in enumerate(overlay_text):
-                    cv2.putText(
-                        heatmap, 
-                        text, 
-                        (10, 30 + i * 30),  # Position text
-                        cv2.FONT_HERSHEY_SIMPLEX, 
-                        0.7,  # Font scale
-                        (0, 0, 0),  # White color
-                        2  # Thickness
-                    )
-                
-                return heatmap
-            except Exception as e:
-                self.appConfigs.logging(f"Thermal data processing error: {e}")
-                self.logger.error(f"Thermal data processing error: {e}")
-                return None
-
 
     def start(self):
         """Start the producer"""
