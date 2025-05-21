@@ -24,6 +24,9 @@ class Producer:
         self.last_thermal_data = None
         self.last_fetch_time = 0
         self.fetch_interval = 0.1  # Minimum time between fetches (seconds)
+        
+        # Default colormap (JET)
+        self.current_colormap = cv2.COLORMAP_JET
 
     async def connect(self):
         """Establish connection to OPC-UA server"""
@@ -90,10 +93,10 @@ class Producer:
                                     interpolation=cv2.INTER_CUBIC
                                 )
                                 
-                                # Apply colormap
+                                # Apply selected colormap (instead of fixed COLORMAP_JET)
                                 heatmap = cv2.applyColorMap(
                                     np.uint8(resized * 255), 
-                                    cv2.COLORMAP_JET
+                                    self.current_colormap
                                 )
                                 
                                 # Compress for better performance

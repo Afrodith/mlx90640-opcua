@@ -78,7 +78,7 @@ class ThermalViewerController(QObject):
     def __init__(self):
         super().__init__()
         
-       
+     
         self.appConfigs = AppConfigs()
         self.buffer = CircularBuffer(buffer_size=30) 
         
@@ -87,6 +87,21 @@ class ThermalViewerController(QObject):
         
         # Producer
         self.producer = Producer(self.buffer, self.appConfigs)
+        
+        # Colormap
+        self.current_colormap = 0  # Default to JET (cv2.COLORMAP_JET)
+        self.colormap_values = {
+            0: cv2.COLORMAP_JET,      # JET
+            1: cv2.COLORMAP_HOT,      # HOT
+            2: cv2.COLORMAP_COOL,     # COOL
+            3: cv2.COLORMAP_RAINBOW,  # RAINBOW
+            4: cv2.COLORMAP_VIRIDIS,  # VIRIDIS
+            5: cv2.COLORMAP_PLASMA,   # PLASMA
+            6: cv2.COLORMAP_INFERNO,  # INFERNO
+            7: cv2.COLORMAP_MAGMA,    # MAGMA
+            8: cv2.COLORMAP_CIVIDIS,  # CIVIDIS
+            9: cv2.COLORMAP_PARULA    # PARULA
+        }
         
         self.producer_thread = None
         self.running = False
@@ -108,10 +123,31 @@ class ThermalViewerController(QObject):
         else:
             self.stop_stream()
     
+    @pyqtSlot(int)
+    def set_colormap(self, colormap_index):
+        """Set the colormap to use for thermal visualization"""
+        if colormap_index in self.colormap_values:
+            self.current_colormap = colormap_index
+            self.appConfigs.logging(f"Colormap changed to index {colormap_index}")
+            
+            # Update producer's colormap if it exists
+            if hasattr(self.producer, 'current_colormap'):
+                self.producer.current_colormap = self.colormap_values[colormap_index]
+    
+    @pyqtSlot(int, bool)
+    def apply_settings(self, colormap_index, enable_temp_warning):
+        """Apply all settings at once"""
+        self.set_colormap(colormap_index)
+        self.appConfigs.logging(f"Settings applied: colormap={colormap_index}, temp_warning={enable_temp_warning}")
+    
     def start_stream(self):
         """Start the thermal data producer"""
         if not self.running:
             self.running = True
+            
+            # Set initial colormap on producer
+            self.producer.current_colormap = self.colormap_values[self.current_colormap]
+            
             self.producer_thread = threading.Thread(target=self.producer.start)
             self.producer_thread.daemon = True
             self.producer_thread.start()

@@ -16,6 +16,8 @@ Window {
     property real maxTemp: 0.0
     property real avgTemp: 0.0
     property bool isStreaming: false
+    property bool settingsPanelOpen: false
+    property bool showTempWarning: enableTempWarning.checked && maxTemp > 100.0
 
     // Main layout
     ColumnLayout {
@@ -67,10 +69,10 @@ Window {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: "lightgray"
+                    color: showTempWarning ? "#ffebee" : "lightgray"
                     radius: 5
-                    border.color: "lightgray"
-                    border.width: 1
+                    border.color: showTempWarning ? "#f44336" : "lightgray"
+                    border.width: showTempWarning ? 2 : 1
 
                     Column {
                         anchors.centerIn: parent
@@ -85,6 +87,7 @@ Window {
                             text: isStreaming ? maxTemp.toFixed(2) + "°C" : "---"
                             font.pixelSize: 18
                             font.bold: true
+                            color: showTempWarning ? "#d32f2f" : "black"
                         }
                     }
                 }
@@ -117,7 +120,7 @@ Window {
             }
         }
 
-        // Thermal image display
+        // Thermal image display with high temperature warning
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -140,6 +143,32 @@ Window {
                 fillMode: Image.PreserveAspectFit
                 cache: false
                 source: ""
+            }
+
+            // High temperature warning message
+            Rectangle {
+                id: warningBox
+                visible: showTempWarning && isStreaming
+                anchors {
+                    top: parent.top
+                    right: parent.right
+                    margins: 10
+                }
+                width: warningText.width + 20
+                height: warningText.height + 10
+                color: "#ffcdd2"
+                border.color: "#f44336"
+                border.width: 2
+                radius: 5
+                
+                Text {
+                    id: warningText
+                    anchors.centerIn: parent
+                    text: "WARNING: Temperature above 100°C!"
+                    color: "#d32f2f"
+                    font.bold: true
+                    font.pixelSize: 14
+                }
             }
 
             // Loading Indicator
@@ -181,11 +210,148 @@ Window {
                     color: streamToggle.checked ? "green" : "red"
                 } 
 
+                Item {
+                    Layout.preferredWidth: 50
+                }
                 
+                Button {
+                    id: settingsButton
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 120
+                    text: settingsPanelOpen ? "Close Settings" : "Settings"
+                    background: Rectangle {
+                        color: settingsPanelOpen ? "lightgray" : "#6060ff"
+                        radius: 5
+                    }
+
+                    onClicked: {
+                        settingsPanelOpen = !settingsPanelOpen;
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
-                }    
+                }
 
+            }
+        }
+    }
+
+    // Settings Panel (slides from the right)
+    Rectangle {
+        id: settingsPanel
+        width: 250
+        anchors {
+            top: parent.top
+            bottom: parent.bottom
+            right: parent.right
+            rightMargin: settingsPanelOpen ? 0 : -width
+        }
+        color: "#e0e0e0"
+        radius: 5
+        border.color: "lightgray"
+        border.width: 1
+        z: 10
+
+        // Animation for panel sliding
+        Behavior on anchors.rightMargin {
+            NumberAnimation { 
+                duration: 200
+                easing.type: Easing.InOutQuad
+            }
+        }
+
+        // Settings panel content
+        ColumnLayout {
+            anchors {
+                fill: parent
+                margins: 15
+            }
+            spacing: 15
+
+            // Settings Title
+            Text {
+                text: "Settings"
+                font.bold: true
+                font.pixelSize: 20
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            Rectangle {
+                height: 1
+                Layout.fillWidth: true
+                color: "#dddddd"
+            }
+
+            // Colormap Selection
+            Text {
+                text: "Colormap"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            ComboBox {
+                id: colormapSelector
+                Layout.fillWidth: true
+                model: [
+                    "JET", 
+                    "HOT", 
+                    "COOL", 
+                    "RAINBOW", 
+                    "VIRIDIS", 
+                    "PLASMA", 
+                    "INFERNO", 
+                    "MAGMA", 
+                    "CIVIDIS", 
+                    "PARULA"
+                ]
+                currentIndex: 0
+                
+                onCurrentIndexChanged: {
+                    thermalController.set_colormap(currentIndex)
+                }
+            }
+
+            Rectangle {
+                height: 1
+                Layout.fillWidth: true
+                color: "#dddddd"
+            }
+
+            // Temperature Warning Settings
+            Text {
+                text: "Temperature Warning"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            // Enable Warning Switch
+            Switch {
+                id: enableTempWarning
+                text: checked ? qsTr("Enabled") : qsTr("Disabled")
+                checked: true
+            }  
+
+            Item {
+                Layout.fillHeight: true
+            }
+
+            // Close Side Panel Button
+            Button {
+                text: "Close"
+                Layout.fillWidth: true
+                background: Rectangle {
+                    color: "#6060ff"
+                    radius: 5
+                }
+                
+                onClicked: {
+                   // thermalController.apply_settings(
+                     //   colormapSelector.currentIndex,
+                       // enableTempWarning.checked
+                    //)
+                    settingsPanelOpen = !settingsPanelOpen;
+                }
             }
         }
     }
